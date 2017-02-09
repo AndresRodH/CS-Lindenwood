@@ -7,7 +7,7 @@ This compiler was built in Java and BYACCJ in a MacOSX machine. The "*osx_preamb
 ##Instructions
 - Run > 'Make'
 - Run > 'java Parser **_'your_test_file.myl'_**. This will spit out assembly code.
-- There are many ways you could do this. Simplest would be creating a new .s file, say "**out.s**", and copying the preamble in it. Below the preamble, copy what the Parser spit out and paste it.
+- There are many ways you could do this. Simplest would be creating a new .s file and copying the preamble in it (like "**out.s**", which is already provided). Below the preamble, copy what the Parser spit out and paste it.
 - Run > './a.out'. Now your program should be running right now.
 
 Special thanks to Dr. Blythe.
