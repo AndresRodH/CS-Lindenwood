@@ -1,0 +1,14 @@
+function main()
+{
+	var x, i;
+	x <- read();
+
+	i <-1;
+	while(i<=x)
+	{
+		print(i);
+		i<-i+1;
+	}
+
+}
+

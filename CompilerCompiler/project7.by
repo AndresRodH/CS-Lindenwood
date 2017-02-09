@@ -1,0 +1,1087 @@
+%{
+import java.lang.Math;
+import java.io.*;
+import java.util.StringTokenizer;
+import java.util.List;
+import java.util.LinkedList;
+%}
+
+/* YACC Declarations */
+%token ADDOP
+%token AND
+%token ASSIGNOP
+%token COMMA
+%token CURLL
+%token CURLR
+%token ELSE
+%token FUNCTION
+%token ID
+%token IF
+%token MULOP
+%token NOT
+%token NUMBER
+%token OR
+%token PARENL
+%token PARENR
+%token RELOP
+%token SEMICOLON
+%token STRING
+%token VAR
+%token WHILE
+
+%left ADDOP
+%left MULOP
+
+
+/* Grammar follows */
+%%
+    start:  pgm
+{
+    allTables.push(globals);
+}
+;
+
+pgm: pgmpart pgm
+    | pgmpart
+    ;
+
+pgmpart: vardecl
+{
+    LinkedList<String> vars = (LinkedList<String>) $1.obj;
+    for(String v:vars)
+	{
+	    globals.add(new Symbol(v, "int"));
+	}
+}
+    | function {funcCount++;}
+    ;
+    
+
+vardecl: VAR varlist SEMICOLON
+{
+    $$.obj = $2.obj;
+    // code to add each var to the symbol table 
+}
+    ;
+
+varlist: ID COMMA varlist
+{
+    LinkedList<String> vl = (LinkedList<String>) $3.obj;
+    vl.add($1.sval);
+    $$.obj=vl;
+}
+    | ID
+{
+    LinkedList<String> vl = new LinkedList<String>();
+    vl.add($1.sval);
+    $$.obj = vl;
+}
+    ;
+
+function: FUNCTION ID 
+PARENL PARENR 
+{
+    ICode funcStart = new ICode("PROCSTART");
+    funcStart.addLabel($2.sval);
+    funcStart.emit();
+
+    globals.add(new Symbol($2.sval, "function"));
+    currTable = new SymbolTable($2.sval);
+    currTable.add(new Symbol($2.sval, "retval"));
+}
+body
+{
+    new ICode("RET").emit();
+    allTables.addLast(currTable);
+}
+| FUNCTION ID PARENL fplist PARENR
+{
+    ICode funcStart = new ICode("PROCSTART");
+    funcStart.addLabel($2.sval);
+    funcStart.emit();
+
+    globals.add(new Symbol($2.sval, "function"));
+    currTable = new SymbolTable($2.sval);
+    LinkedList<String> fpl = (LinkedList<String>) $4.obj; 
+    for(String p:fpl)
+	currTable.add(new Symbol(p,"param"));
+    currTable.add(new Symbol($2.sval, "retval"));
+}
+body
+{
+    new ICode("RET").emit();
+    allTables.addLast(currTable);
+
+}
+    ;
+
+
+body: CURLL bodylist CURLR
+    ;
+
+fplist: ID COMMA fplist
+{
+    LinkedList<String> fpl = (LinkedList<String>) $3.obj;
+    fpl.addFirst($1.sval);
+    $$.obj=fpl;
+}
+    | ID
+{
+    LinkedList<String> ls = new LinkedList<String>();
+    $$.obj = ls;
+    ls.add($1.sval);
+}
+
+    ;
+
+bodylist: vardecl bodylist 
+{
+    LinkedList<String> vl = (LinkedList<String>) $1.obj;
+    for(String v:vl)
+	{
+	    currTable.add(new Symbol(v, "int"));
+	}
+
+}
+
+    | stmt bodylist
+    | /* epsilon */
+    ;
+
+stmt: assign SEMICOLON  {stmtCount++;} 
+    | fcall SEMICOLON  {stmtCount++;}
+    | while  {stmtCount++;}
+    | if {stmtCount++;}
+    | body
+    ;
+
+assign: ID ASSIGNOP expr 
+{
+    new ICode("MOV", $3.sval, $1.sval).emit();   
+}
+    ;
+
+expr: factor {$$ = $1;}
+    | expr ADDOP factor
+{
+    String res = ICode.genTemp();
+    currTable.add(res, "int");
+    String op;
+    if ($2.sval.equals("+"))
+	op = "ADD";
+    else
+	op = "SUB";
+
+    new ICode(op, $1.sval, $3.sval, res).emit();
+    $$.sval = res;
+}
+
+    ;
+
+factor: term { $$ = $1; }
+    | factor MULOP term
+{
+    String res = ICode.genTemp();
+    currTable.add(res,"int");
+    String op;
+    if ($2.sval.equals("*"))
+	op = "MUL";
+    else
+	op = "DIV";
+
+    new ICode(op, $1.sval, $3.sval, res).emit();
+    $$.sval = res;
+}
+    ;
+
+term: ID { $$.sval = $1.sval; }
+    | NUMBER  { $$.sval = ""+$1.ival; }
+    | PARENL expr PARENR  { $$.sval = $2.sval; }
+    | ADDOP term  { if ($1.sval.equals("+"))
+		      $$.sval = $2.sval; 
+	            else // "-"
+		    {
+			String res = ICode.genTemp();
+			currTable.add(res, "int");
+			new ICode("NEG", $2.sval, res ).emit();
+			$$.sval = res;			
+		    }
+		  }
+    | fcall { $$ =$1; }
+    ;
+
+bexpr: bfactor {$$.sval=$1.sval;}
+    | bexpr OR bfactor
+{
+    String res = ICode.genTemp();
+    currTable.add(res,"int");
+    new ICode("OR", $1.sval, $3.sval, res ).emit();
+    $$.sval = res;
+}
+    ;
+
+    bfactor: bneg {$$=$1;}
+    | bfactor AND bneg
+{
+    String res = ICode.genTemp();
+    currTable.add(res,"int");
+    new ICode("AND", $1.sval, $3.sval, res ).emit();
+    $$.sval = res;
+} 
+   ;
+
+    bneg: bterm {$$=$1;}
+    | NOT bterm
+{
+    String res = ICode.genTemp();
+    currTable.add(res,"int");
+    new ICode("NOT", $2.sval, res ).emit();
+    $$.sval=res;
+}
+    ;
+
+bterm: expr RELOP expr
+{
+    String op;
+    if ($2.sval.equals("=="))
+	op = "EQL";
+    else if ($2.sval.equals("<"))
+	op = "LT";
+    else if ($2.sval.equals("<="))
+	op = "LTE";
+    else if ($2.sval.equals(">"))
+	op = "GT";
+    else if ($2.sval.equals(">="))
+	op = "GTE";
+    else //if ($2.sval.equals("!="))
+	op = "NEQ";
+
+    String res = ICode.genTemp();
+    currTable.add(res,"int");
+    new ICode(op, $1.sval, $3.sval, res ).emit();
+    $$.sval=res;
+    //    System.out.println("done bterm, res="+res+"; $$.sval="+$$.sval);
+    
+}
+    | PARENL bterm PARENR {$$.sval=$2.sval;}
+
+
+fcall: ID PARENL PARENR{
+                        String callres = ICode.genTemp();    
+			currTable.add(callres,"int");
+			new ICode("CALL", $1.sval ).emit();
+			new ICode("STRET",  callres ).emit();
+			$$.sval = callres; 
+                       }
+    | ID PARENL aplist PARENR{
+                        String callres = ICode.genTemp();
+			currTable.add(callres,"int");
+			LinkedList<String> apl = (LinkedList<String>)$3.obj;
+			for(String p:apl)
+			    new ICode("PARAM", p ).emit();
+
+			new ICode("CALL", $1.sval ).emit();
+			new ICode("STRET", callres ).emit();
+			$$.sval = callres;
+                       }			
+    ;
+
+aplist:expr COMMA aplist
+{
+    LinkedList<String> apl = (LinkedList<String>) $3.obj;
+    apl.addFirst($1.sval);
+    $$.obj=apl;
+}
+    | expr
+{
+    LinkedList<String> ls = new LinkedList<String>();
+    $$.obj = ls;
+    ls.add($1.sval);
+}
+    | STRING
+{
+    LinkedList<String> ls = new LinkedList<String>();
+    $$.obj = ls;
+    ls.add($1.sval);
+}
+    ;
+
+
+while: WHILE
+{
+    String topLabel = ICode.genLabel();
+    whileLabels.push(topLabel);
+
+
+    ICode topCode = new ICode("NOP" );
+    topCode.addLabel(topLabel);
+    topCode.emit();
+}
+PARENL bexpr 
+{
+
+    String outLabel = ICode.genLabel();
+    whileLabels.push(outLabel);
+
+    //new ICode("CMPwh", $3.sval, "0" ).emit();
+    //System.out.println("$4.sval=:"+$4.sval+":");
+    new ICode("CMP", $4.sval , "0" ).emit();
+    new ICode("BE", outLabel ).emit();
+}
+PARENR stmt
+{
+    String outLabel=whileLabels.pop();
+    String topLabel=whileLabels.pop();
+    new ICode("BA", topLabel).emit();
+    ICode bottomCode = new ICode("NOP" );
+    bottomCode.addLabel(outLabel);
+    bottomCode.emit();   
+}
+    ;
+
+if: IF PARENL bexpr 
+{
+    String midLabel = ICode.genLabel();
+    new ICode("CMP", $3.sval, "0").emit();
+    new ICode("BE", midLabel).emit();
+    ifLabels.push(midLabel);
+}
+PARENR stmt
+{
+    String  midLabel = ifLabels.pop();
+
+    String pastElse = ICode.genLabel();
+    new ICode("BA", pastElse).emit();
+    ifLabels.push(pastElse);
+
+
+    ICode bottomCode = new ICode("NOP");
+    bottomCode.addLabel(midLabel);
+    bottomCode.emit();
+} elsepart
+    ;
+
+elsepart: ELSE stmt
+{
+    String pastElse = ifLabels.pop();
+    ICode endElseCode = new ICode("NOP");
+    endElseCode.addLabel(pastElse);
+    endElseCode.emit();
+}
+    |
+{
+    String noElse = ifLabels.pop();
+    ICode noElseCode = new ICode("NOP");
+    noElseCode.addLabel(noElse);
+    noElseCode.emit();
+}
+
+	;
+
+
+
+
+
+
+
+
+
+%%
+
+    public LinkedList<String> whileLabels = new LinkedList<String>();
+    public LinkedList<String> ifLabels = new LinkedList<String>();
+
+    public static SymbolTable globals = new SymbolTable("__GLOBALS__");
+    public SymbolTable currTable;
+
+    public static LinkedList<SymbolTable> allTables = new LinkedList<SymbolTable>();
+
+    public int stmtCount;
+    public int funcCount;
+
+    public static String left;
+    public static int paramSize;
+    public static String flip;
+
+    private MyLexer yylexer;
+
+private Token t;
+
+public void yyerror(String s)
+{
+    System.out.println("error found near line:"+t.getLine());
+    System.out.println(" token:"+t.getValue());
+    System.out.println(s);
+}
+
+
+
+public int yylex()
+{
+    try
+	{
+	    t = yylexer.nextToken();
+	}
+    catch (Exception e)
+	{
+	    System.err.println("yylex unable to aquire token");
+	    return -1;
+	}
+
+    if (t==null)
+	return -1;
+
+    String tVal = t.getValue();
+    switch(t.getType())
+	{
+	case Token.NUMBER:
+	    yylval = new ParserVal(Integer.parseInt(tVal));
+	    return NUMBER;
+	case Token.ADDOP:
+	    yylval = new ParserVal(tVal);
+	    return ADDOP;
+	case Token.MULOP:
+	    yylval = new ParserVal(tVal);
+	    return MULOP;
+	case Token.RELOP:
+	    yylval = new ParserVal(tVal);
+	    return RELOP;
+	case Token.ID:
+	    yylval = new ParserVal(tVal);
+	    return ID;
+	case Token.PARENL:
+	    return PARENL;
+	case Token.PARENR:
+	    return PARENR;
+	case Token.COMMA:
+	    return COMMA;
+	case Token.ASSIGNOP:
+	    return ASSIGNOP;
+	case Token.SEMICOLON:
+	    return SEMICOLON;
+	case Token.IF:
+	    return IF;
+	case Token.WHILE:
+	    return WHILE;
+	case Token.ELSE:
+	    return ELSE;
+	case Token.CURLL:
+	    return CURLL;
+	case Token.CURLR:
+	    return CURLR;
+	case Token.VAR:
+	    return VAR;
+	case Token.FUNCTION:
+	    return FUNCTION;
+	case Token.OR:
+	    return OR;
+	case Token.AND:
+	    return AND;
+	case Token.NOT:
+	    return NOT;
+	case Token.STRING:
+	    yylval = new ParserVal(tVal);
+	    return STRING;
+	default:
+	    return -1;
+	}
+}
+
+public void setup(String fname)
+{
+    yylexer = new MyLexer(fname);
+    stmtCount=0;
+    funcCount=0;
+}
+
+
+public static void main(String args[])
+{
+ Parser par = new Parser(false);
+ par.setup(args[0]);
+ par.yyparse();
+
+ String currST = "";
+
+ for(ICode c : ICode.stmtList)
+ {
+	 System.out.print("#"); c.print();
+
+     // get the opcode
+     String opCode = c.getOpCode();
+
+     if (opCode.equals("PROCSTART"))  // opcode is PROCSTART
+     {
+        // get label for this symbol table and print it
+        currST = c.getLabel();
+        c.clearOPC();
+        c.print();
+
+        // set pointers
+        new ICode("pushq", "%rbp").print();
+        new ICode("movq", "%rsp, %rbp").print();
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                int size = st.getSize()*4;
+                // allocate space for local variables
+                //System.out.println(st);
+
+                LinkedList<Symbol> syms = st.getSymbols();
+
+                int count = 1;
+
+                for (Symbol s : syms)
+                {
+                    if (s.getType().equals("param"))
+                    {
+                        if (count == 1)
+                        {
+                            String paramOff = Integer.toString(s.getOffset()*(-1))+"(%rbp)";
+                            new ICode("movl", "%eax", paramOff).print();
+                            count++;
+                        }
+                        else if (count == 2)
+                        {
+                            String paramOff = Integer.toString(s.getOffset()*(-1))+"(%rbp)";
+                            new ICode("movl", "%ebx", paramOff).print();
+                            count++;
+                        }
+                        else if (count == 3)
+                        {
+                            String paramOff = Integer.toString(s.getOffset()*(-1))+"(%rbp)";
+                            new ICode("movl", "%ecx", paramOff).print();
+                            count++;
+                        }
+                    }
+                }
+                new ICode("subq", "$"+size, "%rsp").print();
+            }
+        }
+     }
+     else if (opCode.equals("SUB"))  // opcode is SUB
+     {
+        // get all of the parameters
+        List<String> opList = c.getOperands();
+
+        String p1 = opList.get(0);
+        String p2 = opList.get(1);
+        String result = opList.get(2);
+        
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize offset
+                int offset = 0;
+
+                try
+                {
+                    // get offset of the operand
+                    offset = st.find(p1).getOffset()*(-1);
+                    p1 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    p1 = "$"+p1;
+                }
+
+                // assign operand
+                new ICode("movl", p1, "%eax").print();
+
+                try
+                {
+                    // get offset of the operand
+                    offset = st.find(p2).getOffset()*(-1);
+                    p2 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    p2 = "$"+p2;
+                }
+
+                // add operands
+                new ICode("movl", p2, "%ebx").print();
+                
+                // add to result
+                offset = st.find(result).getOffset()*(-1);
+                result = Integer.toString(offset)+"(%rbp)";
+                new ICode("subl", "%ebx", "%eax").print();
+                new ICode("movl", "%eax", result).print();
+            }
+        }
+     }
+     else if (opCode.equals("ADD"))  // opcode is ADD
+     {
+        // get the operands involved in the addition
+        List<String> opList = c.getOperands();
+
+        String p1 = opList.get(0);
+        String p2 = opList.get(1);
+        String result = opList.get(2);
+
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize offset
+                int offset = 0;
+
+                try
+                {
+                    // get offset of the operand
+                    offset = st.find(p1).getOffset()*(-1);
+                    p1 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    p1 = "$"+p1;
+                }
+
+                // assign operand
+                new ICode("movl", p1, "%eax").print();
+
+                try
+                {
+                    // get offset of the operand
+                    offset = st.find(p2).getOffset()*(-1);
+                    p2 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    p2 = "$"+p2;
+                }
+
+                // add operands
+                new ICode("addl", p2, "%eax").print();
+                
+                // add to result
+                offset = st.find(result).getOffset()*(-1);
+                result = Integer.toString(offset)+"(%rbp)";
+                new ICode("movl", "%eax", result).print();
+            }
+        }
+
+     }
+     else if (opCode.equals("PARAM"))  // opcode is PARAM
+     {
+        // get all (if any) of the parameters
+        List<String> opList = c.getOperands();
+        
+        String param = opList.get(0);
+        String reg = "";
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize offset
+                int offset = 0;
+
+                try
+                {
+                    // get offset of the "value"
+                    offset = st.find(param).getOffset()*(-1);
+                    param = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    param = "$"+param;
+                }
+
+                if (paramSize == 0)
+                    reg = "%eax";
+                else if (paramSize == 1)
+                    reg = "%ebx";
+                else if (paramSize == 2)
+                    reg = "%ecx";
+
+                paramSize++;
+                new ICode("movl", param, reg).print();
+            }
+        }
+     }
+     else if (opCode.equals("CALL"))  // opcode is CALL
+     {
+        // get name of the function
+        List<String> opList = c.getOperands();
+
+        new ICode("call", opList.get(0)).print();
+
+        paramSize = 0;
+     }
+     else if (opCode.equals("STRET"))  // opcode is STRET
+     {
+        // get whatever is in STRET
+        String thing = c.getOperands().get(0);
+
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // get offset
+                int offset = st.find(thing).getOffset()*(-1);
+                // print instruction
+                new ICode("movl", "%eax", Integer.toString(offset)+"(%rbp)").print();
+            }
+        }
+     }
+     else if (opCode.equals("MOV"))  // opcode is MOV
+     {
+        // get all of the parameters
+        List<String> opList = c.getOperands();
+
+        String value = opList.get(0);
+        String variable = opList.get(1);
+
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize offset
+                int offset;
+
+                try
+                {
+                    // get offset of the "value"
+                    offset = st.find(value).getOffset()*(-1);
+                    // print instruction
+                    new ICode("movl", Integer.toString(offset)+"(%rbp)", "%eax").print();
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    new ICode("movl", "$" + value, "%eax").print();
+                }
+
+                // get offset of the "variable"
+                offset = st.find(variable).getOffset()*(-1);
+                // print instruction
+                new ICode("movl", "%eax", Integer.toString(offset)+"(%rbp)").print();
+            }
+        }
+
+     }
+     else if (opCode.equals("LT") || opCode.equals("LTE") || opCode.equals("EQL"))  // opcode is LT
+     {
+        // get all of the parameters
+        List<String> opList = c.getOperands();
+        
+        if (opCode.equals("LT"))
+            flip = "jl";
+        else if (opCode.equals("LTE"))
+            flip = "jle";
+        else if (opCode.equals("EQL"))
+            flip = "je";
+
+        String left = opList.get(0);
+        String right = opList.get(1);
+        String result = opList.get(2);
+
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize dummy offset
+                int offset = 0;
+
+                try
+                {
+                    // get offset of the leftmost part
+                    offset = st.find(left).getOffset()*(-1);
+                    left = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // left part of the expresion is a NUMBER
+                    left = "$"+left;
+                }
+
+                // print code for left
+                new ICode("movl", left, "%eax").print();
+
+                try
+                {
+                    // get offset of the rightmost part
+                    offset = st.find(right).getOffset()*(-1);
+                    right = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // right part of the expresion is a NUMBER
+                    right = "$"+right;
+                }
+
+                // print code for right
+                new ICode("movl", right, "%ebx").print();
+
+                try
+                {
+                    // get offset of the result part
+                    offset = st.find(result).getOffset()*(-1);
+                    result = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // left part of the expresion is a NUMBER
+                    result = "$"+result;
+                }
+
+                new ICode("movl", "$1", "%edx").print();
+                new ICode("cmp", "%ebx", "%eax").print();
+                String lbl = ICode.genLabel();
+                new ICode(flip, lbl).print();
+                new ICode("movl", "$0", "%edx").print();
+
+                // print subroutine label
+                ICode ltrue = new ICode("NOP");
+                ltrue.addLabel(lbl);
+                ltrue.clearOPC();
+                ltrue.print();
+
+                new ICode("movl", "%edx", result).print();
+            }
+        }
+     }
+     else if (opCode.equals("CMP"))  // opcode is CMP
+     {
+        // get all of the parameters
+        List<String> opList = c.getOperands();
+
+        String left = opList.get(0);
+        String right = opList.get(1);
+
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize dummy offset
+                int offset = 0;
+
+                try
+                {
+                    // get offset of the leftmost part
+                    offset = st.find(left).getOffset()*(-1);
+                    left = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // left part of the expresion is a NUMBER
+                    left = "$"+left;
+                }
+
+                try
+                {
+                    // get offset of the rightmost part
+                    offset = st.find(right).getOffset()*(-1);
+                    right = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // right part of the expresion is a NUMBER
+                    right = "$"+right;
+                }
+            }
+        }
+
+        new ICode("cmpl", right, left).print();
+     }
+     else if (opCode.equals("BE"))  // opcode is BE
+     {
+        // gets the jump
+        String jump = c.getOperands().get(0);
+
+        new ICode("je", jump).print();
+     }
+     else if (opCode.equals("BA"))  // opcode is BA
+     {
+        // gets the jump
+        String jump = c.getOperands().get(0);
+
+        new ICode("jmp", jump).print();
+     }
+     else if (opCode.equals("NEG"))  // opcode is BA
+     {
+        // gets the parameter to be negated
+        String op1 = c.getOperands().get(0);
+        String op2 = c.getOperands().get(1);
+
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize dummy offset
+                int offset = 0;
+
+                try
+                {
+                    // get offset of the leftmost part
+                    offset = st.find(op1).getOffset()*(-1);
+                    op1 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // op1 is a NUMBER
+                    op1 = "$"+op1;
+                }
+
+                // print code for neg
+                new ICode("movl", op1, "%eax").print();
+                new ICode("neg", "%eax").print();
+
+                try
+                {
+                    // get offset of the leftmost part
+                    offset = st.find(op2).getOffset()*(-1);
+                    op2 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // op2
+                    op2 = "$"+op2;
+                }
+                
+                new ICode("movl", "%eax", op2).print();
+            }
+        }
+     }
+     else if (opCode.equals("MUL"))  // opcode is MUL
+     {
+        // get all of the parameters
+        List<String> opList = c.getOperands();
+
+        String p1 = opList.get(0);
+        String p2 = opList.get(1);
+        String result = opList.get(2);
+        
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize offset
+                int offset = 0;
+
+                try
+                {
+                    // get offset of the operand
+                    offset = st.find(p1).getOffset()*(-1);
+                    p1 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    p1 = "$"+p1;
+                }
+
+                // assign operand
+                new ICode("movl", p1, "%eax").print();
+
+                try
+                {
+                    // get offset of the operand
+                    offset = st.find(p2).getOffset()*(-1);
+                    p2 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    p2 = "$"+p2;
+                }
+
+                // add operands
+                new ICode("movl", p2, "%ebx").print();
+                
+                // add to result
+                offset = st.find(result).getOffset()*(-1);
+                result = Integer.toString(offset)+"(%rbp)";
+                new ICode("imul", "%ebx").print();
+                new ICode("movl", "%eax", result).print();
+            }
+        }
+     }
+     else if (opCode.equals("DIV"))  // opcode is DIV
+     {
+
+        // get all of the parameters
+        List<String> opList = c.getOperands();
+
+        String p1 = opList.get(0);
+        String p2 = opList.get(1);
+        String result = opList.get(2);
+        
+        // find the table in which we are working
+        for (SymbolTable st : allTables)
+        {
+            if (st.getName().equals(currST))  // table found
+            {
+                // intialize offset
+                int offset = 0;
+
+                try
+                {
+                    // get offset of the operand
+                    offset = st.find(p1).getOffset()*(-1);
+                    p1 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    p1 = "$"+p1;
+                }
+
+                // assign operand
+                new ICode("movl", p1, "%eax").print();
+
+                try
+                {
+                    // get offset of the operand
+                    offset = st.find(p2).getOffset()*(-1);
+                    p2 = Integer.toString(offset)+"(%rbp)";
+                }
+                catch (Exception e)
+                {
+                    // value is a NUMBER
+                    p2 = "$"+p2;
+                }
+
+                // add operands
+                new ICode("movl", p2, "%ebx").print();
+                
+                // clear registers (?)
+                new ICode("cltd").print();
+                // add to result
+                offset = st.find(result).getOffset()*(-1);
+                result = Integer.toString(offset)+"(%rbp)";
+                new ICode("idivl", "%ebx").print();
+                new ICode("movl", "%eax", result).print();
+            }
+        }
+     }
+     else if (opCode.equals("NOP"))  // opcode is NOP
+     {
+        // print subroutine label
+        c.clearOPC();
+        c.print();
+     }
+     else if (opCode.equals("RET"))  // opcode is RET
+     {
+        new ICode("leave").print();
+        new ICode("ret").print();
+     }
+ }
+}

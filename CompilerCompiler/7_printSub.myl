@@ -1,0 +1,15 @@
+function doSub(a, b)
+{
+	print(a);
+	print(b);
+	print(a-b);
+}
+
+function main()
+{
+	var x,y;
+	x <- read();
+	y <- read();
+	doSub(x,y);
+}
+

@@ -1,0 +1,7 @@
+function main()
+{
+	var x;
+        x <- 666;
+	print(x);
+}
+

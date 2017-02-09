@@ -1,0 +1,16 @@
+function myFact(n)
+{
+  if (n<=1)
+    myFact<-1;
+  else
+    myFact <- n*myFact(n-1);
+}
+
+function main()
+{
+	var x,y,z;
+	x <- read();
+	z <- myFact(x,y);
+	print(z);
+}
+

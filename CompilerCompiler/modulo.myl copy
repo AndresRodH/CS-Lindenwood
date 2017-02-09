@@ -1,0 +1,16 @@
+function mod(a,b)
+{
+  mod <- a- b*(a/b);
+}
+
+function main()
+{
+
+	var b, a;
+
+	b <- read();
+	a <- read();
+
+	print (mod(b,a));
+}
+

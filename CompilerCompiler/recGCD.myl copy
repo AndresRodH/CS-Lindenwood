@@ -1,0 +1,43 @@
+function mod(a,b)
+{
+  mod <- a- b*(a/b);
+}
+
+function recGCD(v1, v2)
+{
+  if ( mod(v1, v2) == 0 )
+     recGCD <- v2;
+  else
+     recGCD <- recGCD(v2, mod(v1, v2));
+}
+
+function main()
+{
+	var xMin, xMax, yMin, yMax, z;
+	xMin <- read();
+	xMax <- read();
+	
+	yMin <- read();
+	yMax <- read();	
+
+	
+
+        var xvar, yvar;
+
+	xvar <- xMin;
+	while (xvar<=xMax)
+	{
+		yvar <- yMin;
+		while(yvar<=yMax)
+		{
+			print(xvar);
+			print(yvar);
+			z <- recGCD(xvar,yvar);
+			print(z);
+			print(99999999);
+			yvar <- yvar + 1; 
+		}
+		xvar<-xvar+1;
+	}
+}
+

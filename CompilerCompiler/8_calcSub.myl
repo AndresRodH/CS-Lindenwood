@@ -1,0 +1,16 @@
+function doSum(a, b)
+{
+	print(a);
+	print(b);
+	doSum <- a-b;
+}
+
+function main()
+{
+	var x,y,z;
+	x <- read();
+	y <- read();
+	z <- doSum(x,y);
+	print(z);
+}
+

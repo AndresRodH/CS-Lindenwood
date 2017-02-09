@@ -1,0 +1,22 @@
+function myFib(n)
+{
+  if (n<=2)
+    myFib<-1;
+  else
+    myFib <- myFib(n-1)+myFib(n-2);
+}
+
+function main()
+{
+	var x,y,z;
+	x <- read();
+	y<-1;
+	while(y<=x)
+	{
+		print(y);
+		z <- myFib(y);
+		print(z);
+		y<-y+1;
+	}
+}
+

@@ -1,0 +1,9 @@
+function main()
+{
+	var x;
+	x <- read();
+        if (x<0)
+          x<- -x;
+	print(x);
+}
+
