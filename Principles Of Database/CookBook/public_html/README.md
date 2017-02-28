@@ -1,5 +1,6 @@
 #CookBook
 This project allows the user to manage the database for his/her store. There are many ways in which the user can interact with the database. After putting all the necessary credentials and logging in, the user will be redirected to the main menu. Links are provided for:
+
 * Adding ingredients to the store
 * Creating a new recipe
 * Buying **ALL** ingredients from the store from a recipe
