@@ -2,8 +2,8 @@
 This is my final product for the CSC49001 class in Lindenwood University under Phd. Dr. Stephen Blythe's supervision.
 This compiler was built in Java and BYACCJ in a MacOSX machine. There are two preambles.s files that would later be used to run assembly code.
  
-* For *OSX* use the "*osx_preamble.s*" file 
-* For Windows/Linux use the "*preamble.s*" file
+* For **OSX** use the "*osx_preamble.s*" file 
+* For **Windows/Linux** use the "*preamble.s*" file
 
 #NOTE THAT **_".myl"_** FILES ARE INPUT FILES!
 
