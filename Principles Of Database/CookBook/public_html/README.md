@@ -7,13 +7,10 @@ This project allows the user to manage the database for his/her store. There are
 * List all ingredients for a recipe
 
 ##Additional Information
-**AUTHOR**    : Andres Enrique Rodriguez Hernandez
-
-**DATE**      : 11/30/2016
-
-**PLATFORM**  : Linux (Fedora)
-
-**LANGUAGES** : HTML/PHP
+**AUTHOR**    : Andres Enrique Rodriguez Hernandez 
+**DATE**      : 11/30/2016 
+**PLATFORM**  : Linux (Fedora) 
+**LANGUAGES** : HTML/PHP 
 
 **APPROACH** : Started working page by page and computing along with constantly checking with the server for correct execution.
 	
