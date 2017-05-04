@@ -1,4 +1,4 @@
-#CookBook
+# CookBook
 This project allows the user to manage the database for his/her store. There are many ways in which the user can interact with the database. After putting all the necessary credentials and logging in, the user will be redirected to the main menu. Links are provided for:
 
 * Adding ingredients to the store
@@ -6,7 +6,7 @@ This project allows the user to manage the database for his/her store. There are
 * Buying **ALL** ingredients from the store from a recipe
 * List all ingredients for a recipe
 
-##Additional Information
+## Additional Information
   **AUTHOR**    : Andres Enrique Rodriguez Hernandez  
   **DATE**      : 11/30/2016  
   **PLATFORM**  : Linux (Fedora)   
