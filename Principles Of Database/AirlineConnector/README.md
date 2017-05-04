@@ -1,4 +1,4 @@
-#AirlineConnector
+# AirlineConnector
 This project allows the user to manage the database for a really important -- and fictional -- airport. There are many ways in which the user can interact with the database. After putting all the necessary credentials and successfully connected to the database, the user will be prompted to insert commands:
 
 * For adding something to the database, the user has to enter "a" and one of the following:
@@ -24,11 +24,11 @@ This project allows the user to manage the database for a really important -- an
     * 0 for direct flights
     * 1 for flights with one connections
 
-##Requirements
+## Requirements
 This project works with Java's mysql-connector. I have provided the file I used and it has to be added as an external library to the project.
 
 
-##Additional Information
+## Additional Information
   **AUTHOR**    : Andres Enrique Rodriguez Hernandez  
   **DATE**      : 11/02/2016  
   **PLATFORM**  : Windows  
